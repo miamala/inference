@@ -1,3 +1,7 @@
+# miamala
+
+## Getting started
+
 ```sh
-env $(< .env xargs) go run . /home/aphilas/Recordings/whisper-uber.wav
+env $(< .env xargs) go run .
 ```

@@ -5,9 +5,13 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -30,7 +34,39 @@ func main() {
 		log.Fatal("api key not found")
 	}
 
-	path := os.Args[1]
+	e := echo.New()
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+	e.Use(middleware.CORS())
+
+	e.POST("/upload", upload)
+
+	e.Logger.Fatal(e.Start(":1323"))
+}
+
+func upload(c echo.Context) error {
+	file, err := c.FormFile("file")
+	if err != nil {
+		return err
+	}
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	path := file.Filename
+
+	dst, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	if _, err = io.Copy(dst, src); err != nil {
+		return err
+	}
+
 	transactionText, err := extractText(path)
 
 	if err != nil {
@@ -47,7 +83,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println(transaction)
+	buf, err := json.Marshal(transaction)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return c.JSON(http.StatusOK, string(buf))
 }
 
 // use whisper to convert audio to text
